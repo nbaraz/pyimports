@@ -5,6 +5,7 @@ A tool to manage versioned imports. Kind of sounds like 'no-pip'.
 import os
 from os.path import join
 import re
+import shutil
 import argparse
 import warnings
 import pkg_resources
@@ -37,18 +38,15 @@ class Repo:
     def install(self, package_name, version):
         """Install the given package+version to the global repo"""
 
+        if os.path.exists(TEMPDIR):
+            shutil.rmtree(TEMPDIR)
+
         result = pip.main(['install', '-t', TEMPDIR, f'{package_name}=={version}'])
         if result != 0:
             exit(result)
 
         downloaded = os.listdir(TEMPDIR)
-
-        def _get_pkg_info(st):
-            # TODO: use pkg_resources
-            return re.match(r'^((.+?)-(.+).dist-info)$', st).groups()
-
-        versioned, packages = _split_iter_by_function(downloaded, _get_pkg_info)
-        assert set(packages) == set(p[1] for p in versioned)
+        versioned = _parse_pip_installed_dirlist(downloaded)
 
         for pkg_info, pkg, version in versioned:
             _transform_installation(self.path, pkg, version, pkg_info)
@@ -100,6 +98,24 @@ class Repo:
 
         yield package_name, version
 
+    def install_lock(self, lockfile):
+        with open(lockfile, 'r') as f:
+            lock_dict = pytoml.load(f)
+
+        for name, version in lock_dict['packages'].items():
+            self.install(name, version)
+
+
+def _parse_pip_installed_dirlist(dirlist):
+    def _get_pkg_info(st):
+        # TODO: use pkg_resources
+        return re.match(r'^((.+?)-(.+).dist-info)$', st).groups()
+
+    versioned, packages = _split_iter_by_function(dirlist, _get_pkg_info)
+    assert set(packages) == set(p[1] for p in versioned)
+
+    return versioned
+
 
 def _add_package_to_dict(package_dict, package_name, version, force):
     assert version != None
@@ -134,14 +150,9 @@ def _try_rename(src, dst):
         pass
 
 def _transform_installation(repo, package, version, pkg_info):
-    os.makedirs(join(repo, package), exist_ok=True)
+    os.makedirs(join(repo, package, version), exist_ok=True)
 
     version_path = join(repo, package, version)
-    try:
-        os.mkdir(version_path)
-    except FileExistsError:
-        if os.listdir(version_path):
-            raise
 
     _try_rename(join(TEMPDIR, package), join(version_path, package))
     _try_rename(join(TEMPDIR, pkg_info), join(version_path, pkg_info))
@@ -162,14 +173,21 @@ def main():
     install_parser.add_argument('version')
     install_parser.set_defaults(func=_run_install)
 
-    def _run_lockadd(args):
+    def _run_lock_add(args):
         repo.lock_add(args.lockfile, args.name, args.version)
 
-    lockadd_parser = subparsers.add_parser('lockadd')
-    lockadd_parser.add_argument('lockfile')
-    lockadd_parser.add_argument('name')
-    lockadd_parser.add_argument('version')
-    lockadd_parser.set_defaults(func=_run_lockadd)
+    lock_add_parser = subparsers.add_parser('lockadd')
+    lock_add_parser.add_argument('lockfile')
+    lock_add_parser.add_argument('name')
+    lock_add_parser.add_argument('version')
+    lock_add_parser.set_defaults(func=_run_lock_add)
+
+    def _run_install_lock(args):
+        repo.install_lock(args.lockfile)
+
+    install_lock_parser = subparsers.add_parser('install_lock')
+    install_lock_parser.add_argument('lockfile')
+    install_lock_parser.set_defaults(func=_run_install_lock)
 
     parsed_args = parser.parse_args()
     parsed_args.func(parsed_args)
