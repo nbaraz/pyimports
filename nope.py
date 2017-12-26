@@ -33,7 +33,7 @@ class UnsatisfiedRequirement(PackageError):
 
     def __init__(self, requirements_dict):
         self.unsatisfied_requirements = requirements_dict
-        super().__init__('Unsatisfied requirements', requirements_dict)
+        super(UnsatisfiedRequirement, self).__init__(requirements_dict)
 
 
 class Repo:
@@ -73,7 +73,7 @@ class Repo:
 
     def _get_package_requirements(self, package_name, version):
         path_item = os.path.join(self.path, package_name, version)
-        distribution, = pkg_resources.find_on_path(importer.VersionedPathFinder, path_item)
+        distribution, = pkg_resources.find_on_path(None, path_item)
         return distribution.requires()
 
     def _satisfy_requirement(self, requirement):
@@ -159,7 +159,7 @@ def _try_rename(src, dst):
             pass
 
 def _transform_installation(repo, package, version, pkg_info):
-    Path.mkdir(join(repo, package, version), parents=True, exist_ok=True)
+    Path.mkdir(Path(repo, package, version), parents=True, exist_ok=True)
 
     version_path = join(repo, package, version)
 
@@ -168,7 +168,7 @@ def _transform_installation(repo, package, version, pkg_info):
 
 
 def main():
-    repo = Repo('repo')
+    repo = Repo(importer.REPO)
 
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subcommand')

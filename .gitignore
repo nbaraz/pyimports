@@ -1,5 +1,7 @@
 __pycache__/
 repo/
+repo2/
+repo3/
 nope_temp/
 *.pyc
 *.bak
