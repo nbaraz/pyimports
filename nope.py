@@ -7,11 +7,17 @@ from os.path import join
 import re
 import shutil
 import argparse
+import errno
 import warnings
 import pkg_resources
 
 import pip
 import pytoml
+
+try:
+  from pathlib import Path
+except ImportError:
+  from pathlib2 import Path
 
 # TODO: make package
 import importer
@@ -41,7 +47,7 @@ class Repo:
         if os.path.exists(TEMPDIR):
             shutil.rmtree(TEMPDIR)
 
-        result = pip.main(['install', '-t', TEMPDIR, f'{package_name}=={version}'])
+        result = pip.main(['install', '-t', TEMPDIR, '{package_name}=={version}'.format(**locals())])
         if result != 0:
             exit(result)
 
@@ -80,7 +86,8 @@ class Repo:
         for v in versions:
             if v in requirement:
                 try:
-                    yield from self._find_dependencies(requirement.name, v)
+                    for dep in self._find_dependencies(requirement.name, v):
+                        yield dep
                 except UnsatisfiedRequirement as e:
                     failed_requirements[(requirement.name, v)] = e.unsatisfied_requirements
                 else:
@@ -94,7 +101,8 @@ class Repo:
     def _find_dependencies(self, package_name, version):
         requirements = self._get_package_requirements(package_name, version)
         for req in requirements:
-            yield from self._satisfy_requirement(req)
+            for pinned_package in self._satisfy_requirement(req):
+                yield pinned_package
 
         yield package_name, version
 
@@ -123,10 +131,10 @@ def _add_package_to_dict(package_dict, package_name, version, force):
         toml_version = package_dict[package_name]
         if toml_version == version:
             warnings.warn(
-                f'Package `{package_name}` already exists with the same version ({version})')
+                'Package `{package_name}` already exists with the same version ({version})'.format(**locals()))
         else:
             raise PackageError(
-                f'Package `{package_name}` already exists with a different version ({version})')
+                'Package `{package_name}` already exists with a different version ({version})'.format(**locals()))
 
     package_dict[package_name] = version
 
@@ -146,11 +154,12 @@ def _split_iter_by_function(strings, fun):
 def _try_rename(src, dst):
     try:
         os.rename(src, dst)
-    except FileExistsError:
-        pass
+    except OSError as ex:
+        if ex.errno == errno.EEXIST:
+            pass
 
 def _transform_installation(repo, package, version, pkg_info):
-    os.makedirs(join(repo, package, version), exist_ok=True)
+    Path.mkdir(join(repo, package, version), parents=True, exist_ok=True)
 
     version_path = join(repo, package, version)
 
