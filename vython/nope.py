@@ -168,6 +168,13 @@ def _transform_installation(repo, package, version, pkg_info):
 
 
 def main():
+    # TODOS - I'm organizing them in the source because using the github issue tracker is too much
+    # work for this small a project
+    # TODO: Support installing + creating a lockfile from a requirements.txt file
+    # TODO: Create a lockfile for each installed dependency in the folder in which it is installed.
+    #   This will make running entry points / `python -m` possible from vython.
+    # TODO: Support fuzzy version specifivation when installing
+
     repo = Repo(importer.REPO)
 
     parser = argparse.ArgumentParser()
