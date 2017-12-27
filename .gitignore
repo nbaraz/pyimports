@@ -5,3 +5,4 @@ repo3/
 nope_temp/
 *.pyc
 *.bak
+*.egg-info
