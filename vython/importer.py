@@ -3,9 +3,9 @@ import os
 import pytoml
 
 if sys.version_info.major == 3:
-    import importer3 as importer
+    from . import importer3 as importer
 else:
-    import importer2 as importer
+    from . import importer2 as importer
 
 REPO = importer.REPO
 

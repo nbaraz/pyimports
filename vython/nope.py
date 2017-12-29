@@ -20,7 +20,7 @@ except ImportError:
   from pathlib2 import Path
 
 # TODO: make package
-import importer
+from . import importer
 
 TEMPDIR = 'nope_temp'
 
